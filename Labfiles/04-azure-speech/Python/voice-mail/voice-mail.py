@@ -3,7 +3,9 @@ import os
 from playsound3 import playsound
 
 # Import namespaces
-
+# import namespaces
+from azure.identity import DefaultAzureCredential
+import azure.cognitiveservices.speech as speech_sdk
 
 
 def main():
@@ -17,8 +19,11 @@ def main():
         foundry_key = os.getenv('FOUNDRY_KEY')
 
         # Create speech_config using Entra ID authentication
-
-
+        # Create speech_config using Entra ID authentication
+        credential = DefaultAzureCredential()
+        speech_config = speech_sdk.SpeechConfig(    
+            token_credential=credential,
+            endpoint=foundry_endpoint)
 
         # Loop until user quits
         inputText = ""
@@ -36,7 +41,6 @@ def main():
                     print("Invalid option, please try again.")
 
 
-
     except Exception as ex:
         print(ex)
 
@@ -49,8 +53,23 @@ def record_greeting(speech_config):
 
 
     # Synthesize the greeting message to an audio file
+    output_file = "greeting.wav"
+    audio_config = speech_sdk.audio.AudioOutputConfig(filename=output_file)
 
+    speech_config.speech_synthesis_voice_name = "en-US-Serena:DragonHDLatestNeural"
 
+    speech_synthesizer = speech_sdk.SpeechSynthesizer(
+        speech_config=speech_config,
+        audio_config=audio_config
+    )
+
+    result = speech_synthesizer.speak_text_async(greeting_message).get()
+
+    if result.reason == speech_sdk.ResultReason.SynthesizingAudioCompleted:
+        print(f"Greeting recorded and saved to {output_file}")
+        speech_synthesizer = None  # Release the synthesizer resources
+    else:
+        print("Error recording greeting: {}".format(result.reason))
 
 
 # transcribe_messages function
@@ -65,7 +84,17 @@ def transcribe_messages(speech_config):
             playsound(file_path)
 
             # Transcribe the audio file
-
+            # Transcribe the audio file
+            audio_config = speech_sdk.audio.AudioConfig(filename=file_path)
+            speech_recognizer = speech_sdk.SpeechRecognizer(
+                speech_config=speech_config,
+                audio_config=audio_config
+            )
+            result = speech_recognizer.recognize_once_async().get()
+            if result.reason == speech_sdk.ResultReason.RecognizedSpeech:
+                print(f"Transcription: {result.text}")
+            else:
+                print("Error transcribing message: {}".format(result.reason))
 
 
 if __name__ == "__main__":
